@@ -82,3 +82,61 @@ export function tidy(n) {
 export function confirmDialog(message) {
   return window.confirm(message);
 }
+
+// --- Date <-> <input type="date"> helpers -----------------------------------
+// A plain `new Date("2026-08-25")` parses as UTC midnight, which can render as
+// the PREVIOUS day once converted back to local time. Building the Date from
+// separate numeric parts (year, month, day) uses local time instead, so this
+// pair is the safe way to move between an ISO string and a date-input value.
+
+export function toDateInputValue(isoOrDate) {
+  const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+export function fromDateInputValue(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0); // local noon: a safe mid-day anchor
+}
+
+export function isSameLocalDay(a, b) {
+  const da = a instanceof Date ? a : new Date(a);
+  const db = b instanceof Date ? b : new Date(b);
+  return da.getFullYear() === db.getFullYear()
+    && da.getMonth() === db.getMonth()
+    && da.getDate() === db.getDate();
+}
+
+// --- Bottom sheet: pick one of a few options, or cancel ---------------------
+// Used for "which workout are you logging?" from the calendar. Resolves with
+// the chosen option's `value`, or null if the user cancels / taps the scrim.
+
+export function openSheet(title, options) {
+  return new Promise((resolve) => {
+    let done = false;
+    const overlay = h('div', { class: 'sheet-scrim' });
+
+    function close(value) {
+      if (done) return;
+      done = true;
+      overlay.classList.remove('show');
+      setTimeout(() => overlay.remove(), 200);
+      resolve(value);
+    }
+
+    const sheet = h('div', { class: 'sheet' },
+      h('div', { class: 'sheet-title' }, title),
+      ...options.map((opt) =>
+        h('button', { class: 'nav-btn', onClick: () => close(opt.value) }, opt.label)),
+      h('button', { class: 'nav-btn btn-danger', style: { marginTop: '14px' }, onClick: () => close(null) }, 'Cancel')
+    );
+
+    overlay.append(sheet);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+    document.body.append(overlay);
+    requestAnimationFrame(() => overlay.classList.add('show'));
+  });
+}

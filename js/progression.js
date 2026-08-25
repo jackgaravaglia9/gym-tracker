@@ -15,18 +15,33 @@
 // workout, because that's how the rule above is worded.
 // ---------------------------------------------------------------------------
 
-/** Most recent session of a given workout type. `sessions` is oldest-first. */
-export function lastSessionFor(sessions, workoutId) {
+/**
+ * Most recent session of a given workout type. `sessions` is oldest-first.
+ *
+ * Pass `beforeDate` when you're backfilling or editing a session dated in the
+ * past — it bounds the search to sessions strictly before that date, so "last
+ * time" means "before the day you're logging," not "most recent overall."
+ * `excludeId` leaves out the session currently being edited.
+ */
+export function lastSessionFor(sessions, workoutId, opts = {}) {
+  const { beforeDate = null, excludeId = null } = opts;
   for (let i = sessions.length - 1; i >= 0; i--) {
-    if (sessions[i].workoutId === workoutId) return sessions[i];
+    const s = sessions[i];
+    if (excludeId && s.id === excludeId) continue;
+    if (beforeDate && new Date(s.date) >= new Date(beforeDate)) continue;
+    if (s.workoutId === workoutId) return s;
   }
   return null;
 }
 
 /** The weight you used the last time you did this exercise, in any workout. */
-export function lastWeightFor(sessions, exerciseId) {
+export function lastWeightFor(sessions, exerciseId, opts = {}) {
+  const { beforeDate = null, excludeId = null } = opts;
   for (let i = sessions.length - 1; i >= 0; i--) {
-    const entry = sessions[i].entries.find((e) => e.exerciseId === exerciseId);
+    const s = sessions[i];
+    if (excludeId && s.id === excludeId) continue;
+    if (beforeDate && new Date(s.date) >= new Date(beforeDate)) continue;
+    const entry = s.entries.find((e) => e.exerciseId === exerciseId);
     if (entry && typeof entry.weight === 'number') return entry.weight;
   }
   return null;

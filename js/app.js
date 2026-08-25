@@ -7,11 +7,15 @@ import { register, navigate } from './router.js';
 import { renderHome } from './screens/home.js';
 import { renderWorkout } from './screens/workout.js';
 import { renderProgress } from './screens/progress.js';
+import { renderCalendar } from './screens/calendar.js';
+import { renderDay } from './screens/day.js';
 import { renderSettings } from './screens/settings.js';
 
 register('home', renderHome);
 register('workout', renderWorkout);
 register('progress', renderProgress);
+register('calendar', renderCalendar);
+register('day', renderDay);
 register('settings', renderSettings);
 
 navigate('home').catch((err) => {
