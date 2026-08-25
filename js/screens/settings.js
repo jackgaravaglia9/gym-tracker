@@ -1,6 +1,7 @@
-import { h, toast } from '../ui.js';
+import { h, toast, relDate } from '../ui.js';
 import { navigate, state } from '../router.js';
 import * as store from '../store.js';
+import * as sync from '../sync.js';
 
 export async function renderSettings() {
   // Edit a COPY. Nothing touches your real data until you press Save.
@@ -106,8 +107,14 @@ export async function renderSettings() {
       wrap.append(card);
     });
 
+    wrap.append(saveBtn);
+    if (sync.isConfigured()) {
+      wrap.append(
+        h('div', { class: 'prog-group-title', style: { marginTop: '30px' } }, 'Cloud Sync'),
+        syncCard()
+      );
+    }
     wrap.append(
-      saveBtn,
       h('div', { class: 'prog-group-title', style: { marginTop: '30px' } }, 'Backup & Reset'),
       h('div', { class: 'card' },
         h('div', { class: 'btn-row' },
@@ -120,6 +127,35 @@ export async function renderSettings() {
         ),
         h('button', { class: 'nav-btn', onClick: resetDefaults }, 'Reset to defaults'),
         h('button', { class: 'nav-btn btn-danger', onClick: eraseAll }, 'Erase all data')
+      )
+    );
+  }
+
+  function syncCard() {
+    const s = sync.getStatus();
+    if (!s.signedIn) {
+      return h('div', { class: 'card' },
+        h('div', { class: 'small-note' }, 'Not signed in — your data stays on this device only.'),
+        h('button', { class: 'nav-btn btn-primary', onClick: () => navigate('auth') }, 'Enable cloud backup')
+      );
+    }
+    const syncNowBtn = h('button', {
+      class: 'nav-btn', style: { marginTop: 0 },
+      onClick: async () => { await sync.syncNow(); build(); },
+    }, s.syncing ? 'Syncing…' : 'Sync now');
+    syncNowBtn.disabled = s.syncing;
+
+    return h('div', { class: 'card' },
+      h('div', { class: 'small-note' },
+        `Signed in as ${s.email}`, h('br'),
+        s.error ? `Last sync failed: ${s.error}` : s.lastSyncedAt ? `Last synced ${relDate(s.lastSyncedAt).toLowerCase()}` : 'Not synced yet'
+      ),
+      h('div', { class: 'btn-row', style: { marginTop: '12px' } },
+        syncNowBtn,
+        h('button', {
+          class: 'nav-btn btn-danger', style: { marginTop: 0 },
+          onClick: async () => { if (!confirm('Sign out of cloud sync on this device?')) return; await sync.signOut(); build(); },
+        }, 'Sign out')
       )
     );
   }
@@ -182,7 +218,8 @@ export async function renderSettings() {
   }
 
   build();
-  return wrap;
+  const unsubscribe = sync.onStatusChange(() => build());
+  return { node: wrap, cleanup: unsubscribe };
 }
 
 // --- little form helpers -----------------------------------------------------

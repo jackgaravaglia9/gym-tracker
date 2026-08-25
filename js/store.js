@@ -67,6 +67,9 @@ const metaSet = (key, value) => tx(META, 'readwrite', (s) => s.put({ key, value 
 const metaDel = (key) => tx(META, 'readwrite', (s) => s.delete(key));
 
 // --- Workouts (your editable exercise list) --------------------------------
+//
+// `workoutsUpdatedAt` is bookkeeping for sync.js: it's how two devices agree
+// on whose copy of the workout list is newer. Plain local use never reads it.
 
 export async function getWorkouts() {
   const saved = await metaGet('workouts');
@@ -74,29 +77,48 @@ export async function getWorkouts() {
   // First ever run: seed from defaults.js and store an editable copy.
   const seed = structuredClone(DEFAULT_WORKOUTS);
   await metaSet('workouts', seed);
+  await metaSet('workoutsUpdatedAt', new Date().toISOString());
   return seed;
 }
 
 export async function saveWorkouts(workouts) {
   await metaSet('workouts', workouts);
+  await metaSet('workoutsUpdatedAt', new Date().toISOString());
   return workouts;
 }
 
 export async function resetWorkouts() {
   const seed = structuredClone(DEFAULT_WORKOUTS);
   await metaSet('workouts', seed);
+  await metaSet('workoutsUpdatedAt', new Date().toISOString());
   return seed;
+}
+
+export const getWorkoutsUpdatedAt = () => metaGet('workoutsUpdatedAt', null);
+
+// Used only by sync.js to write a copy pulled from the cloud, preserving its
+// original timestamp rather than stamping a fresh "now" over it.
+export async function setWorkoutsRaw(workouts, updatedAt) {
+  await metaSet('workouts', workouts);
+  await metaSet('workoutsUpdatedAt', updatedAt);
 }
 
 // --- Sessions (your logged history) ----------------------------------------
 
 // A session looks like:
-// { id, workoutId, date (ISO string), entries: [ { exerciseId, weight, sets: [reps, reps, ...] } ] }
+// { id, workoutId, date (ISO string), entries: [ { exerciseId, weight, sets: [reps, reps, ...] } ],
+//   updatedAt (ISO string), deletedAt (ISO string or undefined) }
 // Only sets you actually marked done are saved in `sets`.
+//
+// Deletes are SOFT (deletedAt gets stamped, the row stays) so that deleting a
+// log on one device can tell another device to remove it too, next sync —
+// a real delete would just have the row silently reappear on the next pull.
 
 export async function getSessions() {
   const all = await tx(SESSIONS, 'readonly', (s) => s.getAll());
-  return all.sort((a, b) => new Date(a.date) - new Date(b.date)); // oldest first
+  return all
+    .filter((s) => !s.deletedAt)
+    .sort((a, b) => new Date(a.date) - new Date(b.date)); // oldest first
 }
 
 export async function getSessionsForWorkout(workoutId) {
@@ -105,12 +127,23 @@ export async function getSessionsForWorkout(workoutId) {
 }
 
 export function saveSession(session) {
-  return tx(SESSIONS, 'readwrite', (s) => s.put(session));
+  return putSessionRaw({ ...session, updatedAt: new Date().toISOString() });
 }
 
-export function deleteSession(id) {
-  return tx(SESSIONS, 'readwrite', (s) => s.delete(id));
+export async function deleteSession(id) {
+  const existing = await tx(SESSIONS, 'readonly', (s) => s.get(id));
+  if (!existing) return;
+  const now = new Date().toISOString();
+  await putSessionRaw({ ...existing, deletedAt: now, updatedAt: now });
 }
+
+// --- Low-level access for sync.js -------------------------------------------
+// These bypass the "stamp updatedAt to now" behavior above, because sync.js
+// needs to write records exactly as they came from (or are about to go to)
+// the cloud, timestamp included — not as a fresh local edit.
+
+export const getAllSessionsRaw = () => tx(SESSIONS, 'readonly', (s) => s.getAll());
+export const putSessionRaw = (session) => tx(SESSIONS, 'readwrite', (s) => s.put(session));
 
 // --- Draft (auto-saved in-progress workout) --------------------------------
 // So a locked phone or a phone call mid-workout never loses your sets.
@@ -133,14 +166,20 @@ export async function exportAll() {
 
 export async function importAll(data) {
   if (!data || data.app !== 'gym-tracker') throw new Error('Not a gym-tracker backup file.');
-  if (Array.isArray(data.workouts)) await metaSet('workouts', data.workouts);
+  const now = new Date().toISOString();
+  if (Array.isArray(data.workouts)) {
+    await metaSet('workouts', data.workouts);
+    await metaSet('workoutsUpdatedAt', now);
+  }
   if (Array.isArray(data.sessions)) {
     const db = await openDB();
     await new Promise((resolve, reject) => {
       const t = db.transaction(SESSIONS, 'readwrite');
       const store = t.objectStore(SESSIONS);
       store.clear();
-      data.sessions.forEach((s) => store.put(s));
+      // Stamped fresh: an imported backup counts as a new local change, so it
+      // gets pushed up on the next sync rather than looking already-stale.
+      data.sessions.forEach((s) => store.put({ ...s, updatedAt: now }));
       t.oncomplete = resolve;
       t.onerror = () => reject(t.error);
     });
@@ -148,8 +187,12 @@ export async function importAll(data) {
 }
 
 export async function eraseEverything() {
+  // Local-only, by design: this does not touch your Supabase project. If
+  // you're signed in, the next sync will pull your cloud copy back down —
+  // this button resets THIS device, it's not a way to delete synced data.
   await tx(SESSIONS, 'readwrite', (s) => s.clear());
   await metaDel('workouts');
+  await metaDel('workoutsUpdatedAt');
   await metaDel('draft');
 }
 
@@ -157,3 +200,10 @@ export function newId() {
   // Good enough for a single-user app, and sortable-ish by time.
   return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }
+
+// --- Sync UI bookkeeping -----------------------------------------------------
+// Whether you've dismissed the "enable cloud backup" nudge on Home, so it
+// doesn't nag you every time you open the app.
+
+export const getSyncPromptDismissed = () => metaGet('syncPromptDismissed', false);
+export const setSyncPromptDismissed = () => metaSet('syncPromptDismissed', true);

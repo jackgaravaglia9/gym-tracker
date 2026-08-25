@@ -10,6 +10,8 @@ import { renderProgress } from './screens/progress.js';
 import { renderCalendar } from './screens/calendar.js';
 import { renderDay } from './screens/day.js';
 import { renderSettings } from './screens/settings.js';
+import { renderAuth } from './screens/auth.js';
+import * as sync from './sync.js';
 
 register('home', renderHome);
 register('workout', renderWorkout);
@@ -17,6 +19,11 @@ register('progress', renderProgress);
 register('calendar', renderCalendar);
 register('day', renderDay);
 register('settings', renderSettings);
+register('auth', renderAuth);
+
+// Never blocks boot: if there's no config or no signal, this quietly no-ops
+// and the app you already see behaves exactly as if it weren't here.
+sync.initSync();
 
 navigate('home').catch((err) => {
   document.getElementById('app').innerHTML =

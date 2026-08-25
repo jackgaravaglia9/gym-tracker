@@ -2,9 +2,12 @@ import { h, relDate } from '../ui.js';
 import { navigate, state } from '../router.js';
 import { lastSessionFor, readyCount } from '../progression.js';
 import * as store from '../store.js';
+import * as sync from '../sync.js';
 
 export async function renderHome() {
   const draft = await store.getDraft();
+  const dismissed = await store.getSyncPromptDismissed();
+  const syncStatus = sync.getStatus();
 
   const timeEl = h('div', { class: 'clock-time' });
   const dateEl = h('div', { class: 'clock-date' });
@@ -58,9 +61,28 @@ export async function renderHome() {
     )
     : null;
 
+  const showSyncBanner = sync.isConfigured() && !syncStatus.signedIn && !dismissed;
+  const syncBanner = showSyncBanner
+    ? h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '12px' } },
+        h('div', { style: { flex: '1' } },
+          h('div', { class: 'prog-name', style: { fontSize: '17px' } }, '☁ Enable cloud backup'),
+          h('div', { class: 'prog-sub' }, 'Sync your workouts across devices')
+        ),
+        h('button', {
+          class: 'nav-btn btn-primary', style: { marginTop: 0, flex: '0 0 auto', width: 'auto', padding: '0 16px' },
+          onClick: () => navigate('auth'),
+        }, 'Enable'),
+        h('button', {
+          class: 'icon-btn', 'aria-label': 'Dismiss',
+          onClick: async () => { await store.setSyncPromptDismissed(); navigate('home'); },
+        }, '✕')
+      )
+    : null;
+
   return {
     node: h('div', { class: 'screen' },
       h('div', { class: 'clock' }, timeEl, dateEl),
+      syncBanner,
       resume,
       ...dayButtons,
       h('button', { class: 'nav-btn', onClick: () => navigate('progress') }, 'Progress'),
