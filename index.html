@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Gym Tracker</title>
+
+  <!-- viewport-fit=cover lets the app draw under the notch; the CSS then pads
+       content back in with safe-area insets. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0d0e10">
+  <meta name="color-scheme" content="dark">
+
+  <!-- iOS "Add to Home Screen" behaviour -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Gym">
+  <link rel="apple-touch-icon" href="./assets/icon-180.png">
+
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icon-192.png">
+
+  <link rel="preload" as="font" type="font/woff2" href="./assets/fonts/barlow-condensed-700.woff2" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="./assets/fonts/inter-400.woff2" crossorigin>
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

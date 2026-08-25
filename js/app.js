@@ -1,0 +1,30 @@
+// ---------------------------------------------------------------------------
+// Boot file: wires the screens into the router, registers the service worker
+// (offline support), and shows the Home screen.
+// ---------------------------------------------------------------------------
+
+import { register, navigate } from './router.js';
+import { renderHome } from './screens/home.js';
+import { renderWorkout } from './screens/workout.js';
+import { renderProgress } from './screens/progress.js';
+import { renderSettings } from './screens/settings.js';
+
+register('home', renderHome);
+register('workout', renderWorkout);
+register('progress', renderProgress);
+register('settings', renderSettings);
+
+navigate('home').catch((err) => {
+  document.getElementById('app').innerHTML =
+    `<div class="empty">Something went wrong starting the app.<br><br>
+     <span style="font-size:12px">${err.message}</span></div>`;
+  console.error(err);
+});
+
+// Offline support. Registered with relative paths because GitHub Pages serves
+// this app from /gym-tracker/, not the root of the domain.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(console.error);
+  });
+}
