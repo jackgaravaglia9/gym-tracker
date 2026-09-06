@@ -53,7 +53,7 @@ export function historyFor(sessions, exerciseId) {
   for (const s of sessions) {
     const entry = s.entries.find((e) => e.exerciseId === exerciseId);
     if (entry && typeof entry.weight === 'number') {
-      out.push({ date: s.date, weight: entry.weight, sets: entry.sets || [] });
+      out.push({ date: s.date, weight: entry.weight, sets: entry.sets || [], name: entry.name });
     }
   }
   return out;
@@ -71,4 +71,18 @@ export function isReadyHeavier(sessions, workoutId, exercise) {
 /** How many exercises in this workout are flagged — shown on the Home screen. */
 export function readyCount(sessions, workout) {
   return workout.exercises.filter((ex) => isReadyHeavier(sessions, workout.id, ex)).length;
+}
+
+/**
+ * How many sessions since the weight last actually went up, given a
+ * chronological (oldest-first) history from `historyFor`. 0 means it just
+ * increased last time (or there's under 2 sessions to compare); if it's
+ * never increased at all, returns the full length of the plateau.
+ */
+export function sessionsSinceIncrease(history) {
+  if (history.length < 2) return 0;
+  for (let i = history.length - 1; i > 0; i--) {
+    if (history[i].weight > history[i - 1].weight) return history.length - 1 - i;
+  }
+  return history.length - 1;
 }

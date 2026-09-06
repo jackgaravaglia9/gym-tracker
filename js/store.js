@@ -13,12 +13,14 @@
 import { DEFAULT_WORKOUTS } from './defaults.js';
 
 const DB_NAME = 'gym-tracker';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
-// meta:     small key/value records — the workout config, the in-progress draft
-// sessions: one record per finished workout
+// meta:       small key/value records — the workout config, the in-progress draft
+// sessions:   one record per finished workout
+// bodyweights: one record per day you logged your body weight
 const META = 'meta';
 const SESSIONS = 'sessions';
+const BODYWEIGHTS = 'bodyweights';
 
 let dbPromise = null;
 
@@ -28,6 +30,8 @@ function openDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
+      // Each block only adds what's missing — an existing store (and every
+      // record in it) is left exactly alone when the version bumps.
       if (!db.objectStoreNames.contains(META)) {
         db.createObjectStore(META, { keyPath: 'key' });
       }
@@ -35,6 +39,10 @@ function openDB() {
         const s = db.createObjectStore(SESSIONS, { keyPath: 'id' });
         s.createIndex('workoutId', 'workoutId');
         s.createIndex('date', 'date');
+      }
+      if (!db.objectStoreNames.contains(BODYWEIGHTS)) {
+        const bw = db.createObjectStore(BODYWEIGHTS, { keyPath: 'id' });
+        bw.createIndex('date', 'date');
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -145,6 +153,48 @@ export async function deleteSession(id) {
 export const getAllSessionsRaw = () => tx(SESSIONS, 'readonly', (s) => s.getAll());
 export const putSessionRaw = (session) => tx(SESSIONS, 'readwrite', (s) => s.put(session));
 
+// --- Body weight (your own daily weigh-ins) ---------------------------------
+//
+// One record per calendar day: { id, date, weight, loggedAt, updatedAt, deletedAt }.
+// `loggedAt` is the real moment you first logged that day's weight — it's kept
+// even if you come back and correct the number later (that just bumps
+// `updatedAt`), so it stays useful for noticing things like "I've been
+// weighing in later in the morning lately."
+
+function sameCalendarDay(isoA, isoB) {
+  const a = new Date(isoA), b = new Date(isoB);
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+export async function getBodyWeights() {
+  const all = await tx(BODYWEIGHTS, 'readonly', (s) => s.getAll());
+  return all
+    .filter((w) => !w.deletedAt)
+    .sort((a, b) => new Date(a.date) - new Date(b.date)); // oldest first
+}
+
+export async function getBodyWeightForDate(dateISO) {
+  const all = await getBodyWeights();
+  return all.find((w) => sameCalendarDay(w.date, dateISO)) || null;
+}
+
+export async function saveBodyWeight({ date, weight }) {
+  const now = new Date().toISOString();
+  const existing = await getBodyWeightForDate(date);
+  const record = existing
+    ? { ...existing, date, weight, updatedAt: now }
+    : { id: newId(), date, weight, loggedAt: now, updatedAt: now };
+  await tx(BODYWEIGHTS, 'readwrite', (s) => s.put(record));
+  return record;
+}
+
+export async function deleteBodyWeight(id) {
+  const existing = await tx(BODYWEIGHTS, 'readonly', (s) => s.get(id));
+  if (!existing) return;
+  const now = new Date().toISOString();
+  await tx(BODYWEIGHTS, 'readwrite', (s) => s.put({ ...existing, deletedAt: now, updatedAt: now }));
+}
+
 // --- Draft (auto-saved in-progress workout) --------------------------------
 // So a locked phone or a phone call mid-workout never loses your sets.
 
@@ -161,6 +211,7 @@ export async function exportAll() {
     exportedAt: new Date().toISOString(),
     workouts: await getWorkouts(),
     sessions: await getSessions(),
+    bodyWeights: await getBodyWeights(),
   };
 }
 
@@ -184,6 +235,17 @@ export async function importAll(data) {
       t.onerror = () => reject(t.error);
     });
   }
+  if (Array.isArray(data.bodyWeights)) {
+    const db = await openDB();
+    await new Promise((resolve, reject) => {
+      const t = db.transaction(BODYWEIGHTS, 'readwrite');
+      const store = t.objectStore(BODYWEIGHTS);
+      store.clear();
+      data.bodyWeights.forEach((w) => store.put({ ...w, updatedAt: now }));
+      t.oncomplete = resolve;
+      t.onerror = () => reject(t.error);
+    });
+  }
 }
 
 export async function eraseEverything() {
@@ -191,6 +253,7 @@ export async function eraseEverything() {
   // you're signed in, the next sync will pull your cloud copy back down —
   // this button resets THIS device, it's not a way to delete synced data.
   await tx(SESSIONS, 'readwrite', (s) => s.clear());
+  await tx(BODYWEIGHTS, 'readwrite', (s) => s.clear());
   await metaDel('workouts');
   await metaDel('workoutsUpdatedAt');
   await metaDel('draft');

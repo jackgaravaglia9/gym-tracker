@@ -11,12 +11,12 @@ export async function renderCalendar() {
   const monthLabel = h('div', { class: 'cal-month' });
   const grid = h('div', { class: 'cal-grid' });
 
-  function sessionsOn(y, m, d) {
-    return state.sessions.filter((s) => {
-      const sd = new Date(s.date);
-      return sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === d;
-    });
+  function sameDay(iso, y, m, d) {
+    const sd = new Date(iso);
+    return sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === d;
   }
+  const sessionsOn = (y, m, d) => state.sessions.filter((s) => sameDay(s.date, y, m, d));
+  const weightOn = (y, m, d) => state.bodyWeights.find((w) => sameDay(w.date, y, m, d)) || null;
 
   async function chooseWorkoutFor(dateObj) {
     const workoutId = await openSheet('Log a workout',
@@ -28,7 +28,8 @@ export async function renderCalendar() {
   function onDayTap(day) {
     const dateObj = new Date(viewYear, viewMonth, day, 12, 0, 0);
     const sessions = sessionsOn(viewYear, viewMonth, day);
-    if (sessions.length) navigate('day', { date: dateObj.toISOString() });
+    const weight = weightOn(viewYear, viewMonth, day);
+    if (sessions.length || weight) navigate('day', { date: dateObj.toISOString() });
     else chooseWorkoutFor(dateObj);
   }
 
@@ -46,14 +47,20 @@ export async function renderCalendar() {
 
     for (let day = 1; day <= daysInMonth; day++) {
       const isToday = today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === day;
-      const count = sessionsOn(viewYear, viewMonth, day).length;
+      const hasWorkout = sessionsOn(viewYear, viewMonth, day).length > 0;
+      const hasWeight = Boolean(weightOn(viewYear, viewMonth, day));
       grid.append(
         h('button', {
-          class: 'cal-cell' + (isToday ? ' today' : '') + (count ? ' has-log' : ''),
+          class: 'cal-cell' + (isToday ? ' today' : '') + (hasWorkout || hasWeight ? ' has-log' : ''),
           onClick: () => onDayTap(day),
         },
           h('span', { class: 'cal-daynum' }, day),
-          count ? h('span', { class: 'cal-dot' }) : null
+          (hasWorkout || hasWeight)
+            ? h('div', { class: 'cal-dots' },
+                hasWorkout && h('span', { class: 'cal-dot' }),
+                hasWeight && h('span', { class: 'cal-dot-ring' })
+              )
+            : null
         )
       );
     }

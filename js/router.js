@@ -11,7 +11,7 @@ import * as store from './store.js';
 const screens = {};
 let current = null;      // { name, params, cleanup }
 
-export const state = { workouts: [], sessions: [] };
+export const state = { workouts: [], sessions: [], bodyWeights: [] };
 
 export function register(name, renderFn) {
   screens[name] = renderFn;
@@ -19,9 +19,12 @@ export function register(name, renderFn) {
 
 /** Re-read everything from storage into `state`. */
 export async function loadState() {
-  const [workouts, sessions] = await Promise.all([store.getWorkouts(), store.getSessions()]);
+  const [workouts, sessions, bodyWeights] = await Promise.all([
+    store.getWorkouts(), store.getSessions(), store.getBodyWeights(),
+  ]);
   state.workouts = workouts;
   state.sessions = sessions;
+  state.bodyWeights = bodyWeights;
 }
 
 export async function navigate(name, params = {}) {

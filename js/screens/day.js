@@ -4,12 +4,12 @@ import * as store from '../store.js';
 
 export async function renderDay({ date }) {
   const target = new Date(date);
-  const sessions = state.sessions.filter((s) => {
-    const sd = new Date(s.date);
-    return sd.getFullYear() === target.getFullYear()
-      && sd.getMonth() === target.getMonth()
-      && sd.getDate() === target.getDate();
-  });
+  const sameDay = (iso) => {
+    const d = new Date(iso);
+    return d.getFullYear() === target.getFullYear() && d.getMonth() === target.getMonth() && d.getDate() === target.getDate();
+  };
+  const sessions = state.sessions.filter((s) => sameDay(s.date));
+  const weight = state.bodyWeights.find((w) => sameDay(w.date)) || null;
 
   const screen = h('div', { class: 'screen' },
     h('div', { class: 'head' },
@@ -19,8 +19,24 @@ export async function renderDay({ date }) {
     )
   );
 
-  if (!sessions.length) {
+  if (!sessions.length && !weight) {
     screen.append(h('div', { class: 'empty' }, 'Nothing logged this day.'));
+  }
+
+  if (weight) {
+    screen.append(
+      h('div', { class: 'card' },
+        h('div', { class: 'ex-head' }, h('div', { class: 'ex-name' }, 'Body Weight')),
+        h('div', { style: { marginTop: '10px' } },
+          h('div', { class: 'prog-weight', style: { fontSize: '24px' } }, fmtWeight(weight.weight), h('small', {}, 'lb')),
+          h('div', { class: 'prog-sub' }, `Logged at ${new Date(weight.loggedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`)
+        ),
+        h('button', {
+          class: 'nav-btn', style: { marginTop: '14px' },
+          onClick: () => navigate('weight', { date: target.toISOString() }),
+        }, 'Edit')
+      )
+    );
   }
 
   for (const session of sessions) {
@@ -68,6 +84,13 @@ export async function renderDay({ date }) {
   }
 
   screen.append(h('button', { class: 'nav-btn', onClick: addAnother }, '+ Log another workout this day'));
+
+  if (!weight) {
+    screen.append(h('button', {
+      class: 'nav-btn',
+      onClick: () => navigate('weight', { date: target.toISOString() }),
+    }, '+ Log body weight this day'));
+  }
 
   return screen;
 }

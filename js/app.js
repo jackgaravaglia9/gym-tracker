@@ -11,6 +11,8 @@ import { renderCalendar } from './screens/calendar.js';
 import { renderDay } from './screens/day.js';
 import { renderSettings } from './screens/settings.js';
 import { renderAuth } from './screens/auth.js';
+import { renderExercise } from './screens/exercise.js';
+import { renderWeight } from './screens/weight.js';
 import * as sync from './sync.js';
 
 register('home', renderHome);
@@ -20,6 +22,8 @@ register('calendar', renderCalendar);
 register('day', renderDay);
 register('settings', renderSettings);
 register('auth', renderAuth);
+register('exercise', renderExercise);
+register('weight', renderWeight);
 
 // Never blocks boot: if there's no config or no signal, this quietly no-ops
 // and the app you already see behaves exactly as if it weren't here.

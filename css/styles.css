@@ -448,6 +448,7 @@ h1, h2, h3, .num { font-family: var(--display); font-weight: 700; margin: 0; let
 }
 .prog-weight small { font-size: 13px; color: var(--muted); font-weight: 600; margin-left: 3px; }
 .spark { display: block; width: 84px; height: 30px; flex: 0 0 84px; }
+.spark-lg { width: 100%; height: 110px; flex: none; }
 
 /* --- Settings / editor --------------------------------------------------- */
 .field { margin-top: 12px; }
@@ -576,6 +577,8 @@ h1, h2, h3, .num { font-family: var(--display); font-weight: 700; margin: 0; let
 .cal-cell.today { border-color: var(--amber); color: var(--amber); }
 .cal-cell.has-log { border-color: rgba(255, 154, 31, .4); }
 .cal-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+.cal-dot-ring { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--amber); box-sizing: border-box; }
+.cal-dots { display: flex; align-items: center; gap: 3px; }
 
 /* --- Bottom sheet (workout picker) ------------------------------------------ */
 .sheet-scrim {
@@ -639,3 +642,24 @@ h1, h2, h3, .num { font-family: var(--display); font-weight: 700; margin: 0; let
   margin-top: 2px;
 }
 .add-set-btn:active { background: var(--card-2); color: var(--text); }
+
+/* --- A .card that's also a real <button> (Progress -> exercise detail) --- */
+.card-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  transition: transform .08s ease, border-color .15s ease;
+}
+.card-btn:active { transform: scale(.985); border-color: #3c424a; }
+
+/* --- Stat rows, e.g. the exercise detail overview card --- */
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.stat-row:first-child { border-top: 0; padding-top: 0; }
+.stat-label { font-size: 13.5px; color: var(--muted); }
+.stat-value { font-family: var(--display); font-size: 17px; font-weight: 600; }

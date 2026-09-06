@@ -140,3 +140,48 @@ export function openSheet(title, options) {
     requestAnimationFrame(() => overlay.classList.add('show'));
   });
 }
+
+// --- Sparkline: a tiny weight-over-time line, reused by Progress and the ---
+// exercise detail screen. Amber normally, green when a "ready" flag is on.
+export function sparkline(values, ready, { width = 84, height = 30 } = {}) {
+  const W = width, H = height, PAD = 3;
+  const stroke = ready ? 'var(--green)' : 'var(--amber)';
+  const node = svg('svg', { class: 'spark', viewBox: `0 0 ${W} ${H}`, 'aria-hidden': 'true' });
+
+  if (values.length === 0) {
+    node.append(svg('line', {
+      x1: PAD, y1: H / 2, x2: W - PAD, y2: H / 2,
+      stroke: 'var(--border)', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-dasharray': '2 4',
+    }));
+    return node;
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const stepX = values.length > 1 ? (W - PAD * 2) / (values.length - 1) : 0;
+  const pt = (v, i) => [
+    PAD + i * stepX,
+    H - PAD - ((v - min) / span) * (H - PAD * 2),
+  ];
+  const points = values.map(pt);
+
+  if (values.length === 1) {
+    // One data point: a flat baseline plus the dot, so it doesn't look broken.
+    node.append(svg('line', {
+      x1: PAD, y1: H / 2, x2: W - PAD, y2: H / 2,
+      stroke: 'var(--border)', 'stroke-width': 2, 'stroke-linecap': 'round',
+    }));
+    node.append(svg('circle', { cx: W - PAD, cy: H / 2, r: 3, fill: stroke }));
+    return node;
+  }
+
+  node.append(svg('polyline', {
+    points: points.map((p) => p.join(',')).join(' '),
+    fill: 'none', stroke, 'stroke-width': 2,
+    'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+  }));
+  const lastPt = points[points.length - 1];
+  node.append(svg('circle', { cx: lastPt[0], cy: lastPt[1], r: 3, fill: stroke }));
+  return node;
+}

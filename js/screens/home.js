@@ -87,6 +87,7 @@ export async function renderHome() {
       ...dayButtons,
       h('button', { class: 'nav-btn', onClick: () => navigate('progress') }, 'Progress'),
       h('button', { class: 'nav-btn', onClick: () => navigate('calendar') }, 'Calendar'),
+      h('button', { class: 'nav-btn', onClick: () => navigate('weight') }, 'Body Weight'),
       h('button', { class: 'nav-btn', onClick: () => navigate('settings') }, 'Edit Workouts')
     ),
     cleanup: () => clearInterval(timer),
