@@ -185,3 +185,27 @@ export function sparkline(values, ready, { width = 84, height = 30 } = {}) {
   node.append(svg('circle', { cx: lastPt[0], cy: lastPt[1], r: 3, fill: stroke }));
   return node;
 }
+
+// --- Copy text to the clipboard, with a toast saying how it went ------------
+// navigator.clipboard needs https (GitHub Pages and localhost both qualify)
+// and a tap; the textarea fallback covers anything that refuses it.
+export async function copyText(text) {
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+    document.body.append(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    ta.remove();
+  }
+  toast(ok ? 'Copied to clipboard' : "Couldn't copy — try again");
+  return ok;
+}

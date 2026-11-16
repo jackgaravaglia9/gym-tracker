@@ -1,4 +1,4 @@
-import { h, toast, fmtWeight, tidy, toDateInputValue, fromDateInputValue, sparkline, shortDate } from '../ui.js';
+import { h, toast, fmtWeight, tidy, toDateInputValue, fromDateInputValue, sparkline, shortDate, copyText } from '../ui.js';
 import { navigate, state } from '../router.js';
 import * as store from '../store.js';
 
@@ -84,6 +84,16 @@ export async function renderWeight({ date } = {}) {
     buildHistory();
   }
 
+  // --- Copy: every logged day as plain text, oldest first, for pasting -------
+  function copyLog() {
+    if (!allWeights.length) { toast('No weigh-ins to copy yet'); return; }
+    const lines = allWeights.map((w) => {
+      const day = new Date(w.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      return `${day} - ${fmtWeight(w.weight)} lb` + (w.loggedAt ? ` (logged ${timeOf(w.loggedAt)})` : '');
+    });
+    copyText([`Body weight log (${allWeights.length} ${allWeights.length === 1 ? 'entry' : 'entries'})`, ...lines].join('\n'));
+  }
+
   // --- Weekly averages: Sunday-start weeks, matching the Calendar grid -------
   function startOfWeek(d) {
     const s = new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay());
@@ -154,7 +164,8 @@ export async function renderWeight({ date } = {}) {
   return h('div', { class: 'screen' },
     h('div', { class: 'head' },
       h('button', { class: 'back', 'aria-label': 'Back', onClick: () => navigate('home') }, '‹'),
-      h('div', { class: 'head-title' }, 'Body Weight')
+      h('div', { class: 'head-title' }, 'Body Weight'),
+      h('button', { class: 'copy-btn', onClick: copyLog }, 'Copy')
     ),
     h('div', { class: 'card' },
       h('div', { class: 'field' }, h('label', {}, 'Date'), dateInput),

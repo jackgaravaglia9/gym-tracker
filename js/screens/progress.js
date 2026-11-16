@@ -1,4 +1,4 @@
-import { h, fmtWeight, relDate, shortDate, sparkline } from '../ui.js';
+import { h, fmtWeight, relDate, shortDate, sparkline, tidy, copyText, toast } from '../ui.js';
 import { navigate, state } from '../router.js';
 import { historyFor, isReadyHeavier, lastSessionFor, lastWeightFor } from '../progression.js';
 
@@ -8,7 +8,8 @@ export async function renderProgress() {
       h('button', { class: 'back', 'aria-label': 'Back', onClick: () => navigate('home') }, '‹'),
       h('div', { class: 'head-title' }, 'Progress',
         h('div', { class: 'head-sub' }, `${state.sessions.length} session${state.sessions.length === 1 ? '' : 's'} logged`)
-      )
+      ),
+      h('button', { class: 'copy-btn', onClick: copyProgress }, 'Copy')
     )
   );
 
@@ -58,4 +59,41 @@ export async function renderProgress() {
   }
 
   return screen;
+}
+
+// --- Copy: a plain-text summary of every lift, for pasting elsewhere ---------
+// e.g.  Hack Squat - 6 sessions logged - up 10 lb since start (60 -> 70 lb)
+// An exercise that sits on two workouts (Ab Crunch) shares one history, so it's
+// listed once, under the first workout it appears in.
+
+function progressText() {
+  const today = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  const out = [`Lift progress (as of ${today})`];
+  const seen = new Set();
+
+  for (const workout of state.workouts) {
+    const lines = [];
+    for (const ex of workout.exercises) {
+      if (seen.has(ex.id)) continue;
+      seen.add(ex.id);
+
+      const history = historyFor(state.sessions, ex.id);
+      if (!history.length) { lines.push(`${ex.name} - not logged yet`); continue; }
+
+      const first = history[0].weight;
+      const current = history[history.length - 1].weight;
+      const gain = tidy(current - first);
+      const change = gain > 0 ? `up ${fmtWeight(gain)} lb since start`
+        : gain < 0 ? `down ${fmtWeight(Math.abs(gain))} lb since start`
+        : 'no change since start';
+      lines.push(`${ex.name} - ${history.length} session${history.length === 1 ? '' : 's'} logged - ${change} (${fmtWeight(first)} -> ${fmtWeight(current)} lb)`);
+    }
+    if (lines.length) out.push('', workout.label, ...lines);
+  }
+  return out.join('\n');
+}
+
+function copyProgress() {
+  if (!state.sessions.length) { toast('Nothing logged yet'); return; }
+  copyText(progressText());
 }
