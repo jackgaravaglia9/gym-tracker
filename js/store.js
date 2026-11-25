@@ -363,6 +363,30 @@ const MIGRATIONS = [
       return `Added ${added} days of Assisted Dips history to your last ${targets.length} Arm Days.`;
     },
   },
+  {
+    // Ab Crunch machine -> Bosu Ball Leg Raises, on every workout that had it.
+    // The new lift takes the old one's slot. Ab Crunch's logged history is left
+    // exactly as it is; it just stops being on a workout, so Progress files it
+    // under Archived.
+    id: '2026-11-ab-crunch-to-bosu-leg-raises',
+    async run() {
+      const workouts = await getWorkouts();
+      let swapped = 0;
+      for (const w of workouts) {
+        const at = w.exercises.findIndex((ex) => ex.id === 'ab-crunch');
+        if (at === -1) continue;
+        const hasBosu = w.exercises.some((ex) => ex.id === 'bosu-leg-raises' || /bosu/i.test(ex.name));
+        if (hasBosu) w.exercises.splice(at, 1);
+        else w.exercises.splice(at, 1, {
+          id: 'bosu-leg-raises', name: 'Bosu Ball Leg Raises', weight: 0, step: 5, sets: 1, repLow: 10, repHigh: 15,
+        });
+        swapped++;
+      }
+      if (!swapped) return;
+      await saveWorkouts(workouts);
+      return `Swapped Ab Crunch for Bosu Ball Leg Raises on ${swapped} workout${swapped === 1 ? '' : 's'}. Ab Crunch history is kept under Archived in Progress.`;
+    },
+  },
 ];
 
 export async function runMigrations() {

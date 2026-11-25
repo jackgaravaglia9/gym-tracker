@@ -27,7 +27,7 @@ export const DEFAULT_WORKOUTS = [
       { id: 'leg-extension',   name: 'Leg Extension',   weight: 80, step: 5, sets: 3, repLow: 8,  repHigh: 10 },
       { id: 'seated-leg-curl', name: 'Seated Leg Curl', weight: 85, step: 5, sets: 3, repLow: 8,  repHigh: 10 },
       { id: 'calf-raises',     name: 'Calf Raises',     weight: 90, step: 5, sets: 3, repLow: 6,  repHigh: 10 },
-      { id: 'ab-crunch',       name: 'Ab Crunch',       weight: 95, step: 5, sets: 1, repLow: 10, repHigh: 15 },
+      { id: 'bosu-leg-raises', name: 'Bosu Ball Leg Raises', weight: 0, step: 5, sets: 1, repLow: 10, repHigh: 15 },
     ],
   },
   {
@@ -41,7 +41,7 @@ export const DEFAULT_WORKOUTS = [
       { id: 'seated-cable-row',    name: 'Seated Cable Row',     weight: 85,  step: 5,   sets: 3, repLow: 7,  repHigh: 9  },
       { id: 'seated-fixed-row',    name: 'Seated Fixed Row',     weight: 85,  step: 5,   sets: 2, repLow: 8,  repHigh: 10 },
       { id: 'pec-deck',            name: 'Pec Deck',             weight: 85,  step: 5,   sets: 3, repLow: 8,  repHigh: 10 },
-      { id: 'ab-crunch',           name: 'Ab Crunch',            weight: 95,  step: 5,   sets: 1, repLow: 10, repHigh: 15 },
+      { id: 'bosu-leg-raises', name: 'Bosu Ball Leg Raises', weight: 0, step: 5, sets: 1, repLow: 10, repHigh: 15 },
     ],
   },
   {
