@@ -15,7 +15,6 @@ export async function renderWeight({ date } = {}) {
     h('span', { class: 'weight-num' }, fmtWeight(weight)), h('span', { class: 'weight-unit' }, 'lb'));
   const metaNote = h('div', { class: 'small-note' });
   const saveBtn = h('button', { class: 'nav-btn btn-primary', onClick: save }, existing ? 'Update' : 'Save');
-  const weeklyWrap = h('div', {});
   const historyWrap = h('div', {});
 
   function timeOf(iso) {
@@ -71,7 +70,6 @@ export async function renderWeight({ date } = {}) {
     toast('Weight saved');
     saveBtn.textContent = 'Update';
     updateMetaNote();
-    buildWeekly();
     buildHistory();
   }
 
@@ -80,7 +78,6 @@ export async function renderWeight({ date } = {}) {
     await store.deleteBodyWeight(id);
     allWeights = await store.getBodyWeights();
     if (existing && existing.id === id) { existing = null; saveBtn.textContent = 'Save'; updateMetaNote(); }
-    buildWeekly();
     buildHistory();
   }
 
@@ -101,35 +98,54 @@ export async function renderWeight({ date } = {}) {
   }
   function average(nums) { return nums.reduce((a, b) => a + b, 0) / nums.length; }
 
-  function buildWeekly() {
-    const now = new Date();
-    const thisStart = startOfWeek(now);
-    const nextStart = new Date(thisStart); nextStart.setDate(nextStart.getDate() + 7);
-    const lastStart = new Date(thisStart); lastStart.setDate(lastStart.getDate() - 7);
+  function weeklyCard() {
+    const byWeek = new Map(); // week-start time -> that week's weigh-ins
+    for (const w of allWeights) {
+      const key = startOfWeek(new Date(w.date)).getTime();
+      if (!byWeek.has(key)) byWeek.set(key, []);
+      byWeek.get(key).push(w.weight);
+    }
 
-    const inWeek = (iso, start, end) => { const d = new Date(iso); return d >= start && d < end; };
-    const thisWeekVals = allWeights.filter((w) => inWeek(w.date, thisStart, nextStart)).map((w) => w.weight);
-    const lastWeekVals = allWeights.filter((w) => inWeek(w.date, lastStart, thisStart)).map((w) => w.weight);
-    const thisAvg = thisWeekVals.length ? average(thisWeekVals) : null;
-    const lastAvg = lastWeekVals.length ? average(lastWeekVals) : null;
+    // Every week from your first weigh-in through this one, so a week you
+    // skipped still shows up (as a gap) instead of silently vanishing.
+    const thisStart = startOfWeek(new Date());
+    const weeks = [];
+    for (let d = startOfWeek(new Date(allWeights[0].date)); d <= thisStart; d.setDate(d.getDate() + 7)) {
+      const vals = byWeek.get(d.getTime()) || [];
+      weeks.push({ start: new Date(d), count: vals.length, avg: vals.length ? average(vals) : null });
+    }
 
-    let delta = null;
-    if (thisAvg !== null && lastAvg !== null) delta = tidy(thisAvg - lastAvg);
+    const thisYear = new Date().getFullYear();
+    const fmtDay = (d, withYear) => d.toLocaleDateString(undefined,
+      withYear ? { month: 'short', day: 'numeric', year: 'numeric' } : { month: 'short', day: 'numeric' });
 
-    weeklyWrap.replaceChildren(
-      h('div', { class: 'card' },
-        h('div', { class: 'stat-row' },
-          h('span', { class: 'stat-label' }, `This week (${thisWeekVals.length} logged)`),
-          h('span', { class: 'stat-value' }, thisAvg !== null ? `${fmtWeight(thisAvg)} lb` : '—')
+    const rows = weeks.map((wk, i) => {
+      const isCurrent = wk.start.getTime() === thisStart.getTime();
+      const end = new Date(wk.start); end.setDate(end.getDate() + 6);
+      const name = isCurrent ? 'This week'
+        : `${fmtDay(wk.start, wk.start.getFullYear() !== thisYear)} – ${fmtDay(end, false)}`;
+
+      const prev = i > 0 ? weeks[i - 1] : null;
+      let deltaText = '';
+      if (wk.avg !== null && prev && prev.avg !== null) {
+        const delta = tidy(wk.avg - prev.avg);
+        deltaText = Math.abs(delta) < 0.05 ? 'no change' : `${delta > 0 ? '+' : ''}${fmtWeight(delta)} lb`;
+      }
+
+      const logged = wk.count ? `${wk.count} logged${isCurrent ? ' so far' : ''}` : 'no weigh-ins';
+      return h('div', { class: 'stat-row week-row' },
+        h('div', {},
+          h('div', { class: 'week-name' }, name),
+          h('div', { class: 'week-sub' }, logged)
         ),
-        h('div', { class: 'stat-row' },
-          h('span', { class: 'stat-label' }, 'Last week'),
-          h('span', { class: 'stat-value' }, lastAvg !== null ? `${fmtWeight(lastAvg)} lb` : '—')
-        ),
-        delta !== null && h('div', { class: 'small-note', style: { marginTop: '8px' } },
-          `${delta > 0 ? '+' : ''}${fmtWeight(delta)} lb vs last week`)
-      )
-    );
+        h('div', { class: 'week-right' },
+          h('div', { class: 'stat-value' }, wk.avg !== null ? `${fmtWeight(wk.avg)} lb` : '—'),
+          deltaText && h('div', { class: 'week-delta' }, deltaText)
+        )
+      );
+    });
+
+    return h('div', { class: 'card' }, ...rows.reverse()); // newest week first
   }
 
   function buildHistory() {
@@ -152,13 +168,14 @@ export async function renderWeight({ date } = {}) {
 
     historyWrap.replaceChildren(
       h('div', { class: 'card' }, spark),
+      h('div', { class: 'prog-group-title' }, 'Weekly averages'),
+      weeklyCard(),
       h('div', { class: 'prog-group-title' }, 'History'),
       h('div', { class: 'sets' }, ...rows)
     );
   }
 
   updateMetaNote();
-  buildWeekly();
   buildHistory();
 
   return h('div', { class: 'screen' },
@@ -177,7 +194,6 @@ export async function renderWeight({ date } = {}) {
       metaNote,
       saveBtn
     ),
-    weeklyWrap,
     historyWrap
   );
 }

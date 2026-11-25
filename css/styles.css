@@ -680,3 +680,24 @@ h1, h2, h3, .num { font-family: var(--display); font-weight: 700; margin: 0; let
   text-transform: uppercase;
 }
 .copy-btn:active { background: var(--card-2); }
+
+/* --- Date inputs: iOS Safari sizes these natively and ignores width:100%, so
+       the field poked out past the right edge of its card. Dropping the native
+       appearance and capping the width keeps it inside the box. --------------- */
+.field { min-width: 0; }
+.field input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
+}
+.field input[type="date"]::-webkit-date-and-time-value { text-align: left; min-width: 0; }
+
+/* --- Weekly averages list (Body Weight) ------------------------------------- */
+.week-row { align-items: center; gap: 12px; }
+.week-name { font-family: var(--display); font-size: 17px; font-weight: 600; }
+.week-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.week-right { text-align: right; flex: 0 0 auto; }
+.week-delta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
