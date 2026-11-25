@@ -73,7 +73,7 @@ function buildScreen(workout, mode, initialDateISO, resumedLiveDraft, editingSes
           const saved = editingSession.entries.find((e) => e.exerciseId === ex.id);
           return [ex.id, saved
             ? { weight: saved.weight, sets: saved.sets.map((reps) => ({ done: true, reps })) }
-            : { weight: lastWeightFor(state.sessions, ex.id, { beforeDate: editingSession.date, excludeId: editingSession.id }) ?? ex.weight, sets: [] }];
+            : { weight: lastWeightFor(state.sessions, ex.id, { from: ex.statsFrom, beforeDate: editingSession.date, excludeId: editingSession.id }) ?? ex.weight, sets: [] }];
         })
       ),
     };
@@ -81,7 +81,7 @@ function buildScreen(workout, mode, initialDateISO, resumedLiveDraft, editingSes
     session = { id: resumedLiveDraft.id, date: resumedLiveDraft.date, entries: {} };
     workout.exercises.forEach((ex) => {
       session.entries[ex.id] = resumedLiveDraft.entries[ex.id] || {
-        weight: lastWeightFor(state.sessions, ex.id, { beforeDate: initialDateISO }) ?? ex.weight,
+        weight: lastWeightFor(state.sessions, ex.id, { from: ex.statsFrom, beforeDate: initialDateISO }) ?? ex.weight,
         sets: Array.from({ length: ex.sets }, () => ({ done: false, reps: ex.repLow })),
       };
     });
@@ -91,7 +91,7 @@ function buildScreen(workout, mode, initialDateISO, resumedLiveDraft, editingSes
       date: initialDateISO,
       entries: Object.fromEntries(
         workout.exercises.map((ex) => {
-          const previous = lastWeightFor(state.sessions, ex.id, { beforeDate: initialDateISO });
+          const previous = lastWeightFor(state.sessions, ex.id, { from: ex.statsFrom, beforeDate: initialDateISO });
           return [ex.id, {
             weight: previous === null ? ex.weight : previous,
             sets: Array.from({ length: ex.sets }, () => ({ done: false, reps: ex.repLow })),
@@ -136,9 +136,9 @@ function buildScreen(workout, mode, initialDateISO, resumedLiveDraft, editingSes
 
   function drawCard(ex) {
     const entry = session.entries[ex.id];
-    const previous = lastWeightFor(state.sessions, ex.id, { beforeDate: session.date, excludeId: session.id });
+    const previous = lastWeightFor(state.sessions, ex.id, { from: ex.statsFrom, beforeDate: session.date, excludeId: session.id });
     const lastSession = lastSessionFor(state.sessions, workout.id, { beforeDate: session.date, excludeId: session.id });
-    const lastEntry = lastEntryFor(state.sessions, ex.id, { beforeDate: session.date, excludeId: session.id });
+    const lastEntry = lastEntryFor(state.sessions, ex.id, { from: ex.statsFrom, beforeDate: session.date, excludeId: session.id });
     const ready = isReadyHeavier(state.sessions, workout.id, ex);
 
     const card = h('div', { class: 'card' });

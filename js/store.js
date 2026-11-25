@@ -286,6 +286,13 @@ const CHESTBACK_ORDER = [
   'seated-cable-row', 'seated-fixed-row', 'pec-deck', 'ab-crunch',
 ];
 
+// Reps per set for Assisted Dips, day 1 (oldest) -> day 8 (newest); all at 55 lb.
+// Days 5-8 had no weight written down, so they're assumed to be 55 too.
+const ASSISTED_DIPS_SEED = [
+  [8, 8, 7], [8, 8, 8], [10, 10, 8], [10, 7, 7],
+  [10, 8, 8], [10, 10, 10], [10, 10, 7], [10, 10, 10],
+];
+
 const MIGRATIONS = [
   {
     id: '2026-11-chestback-order-and-assisted-dips',
@@ -319,14 +326,54 @@ const MIGRATIONS = [
       if (changed) await saveWorkouts(workouts);
     },
   },
+  {
+    // Eight days of Assisted Dips history, attached to your most recent Arm Day
+    // sessions (day 8 = newest). It only ADDS an Assisted Dips entry to each
+    // session — nothing already logged is changed, and a session that already
+    // has Assisted Dips is skipped. Returns a note shown once when the app opens.
+    id: '2026-11-seed-assisted-dips-history',
+    async run() {
+      const workouts = await getWorkouts();
+      const arms = workouts.find((w) => w.id === 'arms');
+      const dips = arms && arms.exercises.find((ex) => ex.id === 'assisted-dips' || /assisted dips/i.test(ex.name));
+      if (!dips) return "Assisted Dips isn't on Arm Day, so its history wasn't added.";
+
+      const sessions = await getSessions();
+      if (!sessions.length) return; // brand-new install: nothing to attach to, and nothing worth announcing
+      const targets = sessions.filter((s) => s.workoutId === 'arms').slice(-ASSISTED_DIPS_SEED.length);
+      if (!targets.length) return 'No Arm Days logged yet, so there was nothing to add Assisted Dips history to.';
+
+      // If fewer than 8 Arm Days exist, the newest sessions still get the newest days.
+      const firstDay = ASSISTED_DIPS_SEED.length - targets.length;
+      let added = 0;
+      for (let i = 0; i < targets.length; i++) {
+        const session = targets[i];
+        if (session.entries.some((e) => e.exerciseId === dips.id)) continue;
+        const entries = [...session.entries];
+        const after = entries.findIndex((e) => e.exerciseId === 'seated-dips');
+        entries.splice(after === -1 ? entries.length : after + 1, 0, {
+          exerciseId: dips.id, name: dips.name, weight: 55, sets: ASSISTED_DIPS_SEED[firstDay + i],
+        });
+        await saveSession({ ...session, entries });
+        added++;
+      }
+      if (targets.length < ASSISTED_DIPS_SEED.length) {
+        return `Added Assisted Dips history to ${added} Arm Days. You have ${targets.length} logged, so the oldest ${firstDay} days were left out.`;
+      }
+      return `Added ${added} days of Assisted Dips history to your last ${targets.length} Arm Days.`;
+    },
+  },
 ];
 
 export async function runMigrations() {
   const done = await metaGet('migrationsDone', []);
+  const notes = [];
   for (const m of MIGRATIONS) {
     if (done.includes(m.id)) continue;
-    await m.run();
+    const note = await m.run();
+    if (note) notes.push(note);
     done.push(m.id);
     await metaSet('migrationsDone', done);
   }
+  return notes;
 }

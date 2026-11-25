@@ -9,6 +9,13 @@
 // sets to be logged, or two good sessions in a row), this is the only file to
 // touch.
 //
+// Machine changes: an exercise can carry `statsFrom` (a date). Everything that
+// measures PROGRESS — current weight, graph, gain, plateau — only counts
+// sessions on/after that date, so switching to a machine with a different
+// scale doesn't read as a huge drop. Earlier sessions are never touched; they
+// stay in your history, just not in the progress math. Functions below take it
+// as `from`.
+//
 // Note on weights: exercise history is tracked by exercise id ACROSS workouts.
 // So Ab Crunch is one exercise with one weight history, even though it appears
 // on both Leg Day and Chest/Back. The "go heavier" flag is still judged per
@@ -36,11 +43,12 @@ export function lastSessionFor(sessions, workoutId, opts = {}) {
 
 /** The weight you used the last time you did this exercise, in any workout. */
 export function lastWeightFor(sessions, exerciseId, opts = {}) {
-  const { beforeDate = null, excludeId = null } = opts;
+  const { beforeDate = null, excludeId = null, from = null } = opts;
   for (let i = sessions.length - 1; i >= 0; i--) {
     const s = sessions[i];
     if (excludeId && s.id === excludeId) continue;
     if (beforeDate && new Date(s.date) >= new Date(beforeDate)) continue;
+    if (from && new Date(s.date) < new Date(from)) break; // oldest-first: nothing older counts either
     const entry = s.entries.find((e) => e.exerciseId === exerciseId);
     if (entry && typeof entry.weight === 'number') return entry.weight;
   }
@@ -53,11 +61,12 @@ export function lastWeightFor(sessions, exerciseId, opts = {}) {
  * from the last time you did it, rather than going blank.
  */
 export function lastEntryFor(sessions, exerciseId, opts = {}) {
-  const { beforeDate = null, excludeId = null } = opts;
+  const { beforeDate = null, excludeId = null, from = null } = opts;
   for (let i = sessions.length - 1; i >= 0; i--) {
     const s = sessions[i];
     if (excludeId && s.id === excludeId) continue;
     if (beforeDate && new Date(s.date) >= new Date(beforeDate)) continue;
+    if (from && new Date(s.date) < new Date(from)) break;
     const entry = s.entries.find((e) => e.exerciseId === exerciseId && e.sets && e.sets.length);
     if (entry) return { sets: entry.sets, weight: entry.weight, date: s.date, sessionId: s.id };
   }
@@ -65,9 +74,10 @@ export function lastEntryFor(sessions, exerciseId, opts = {}) {
 }
 
 /** Every logged weight for an exercise over time — feeds the sparkline. */
-export function historyFor(sessions, exerciseId) {
+export function historyFor(sessions, exerciseId, { from = null } = {}) {
   const out = [];
   for (const s of sessions) {
+    if (from && new Date(s.date) < new Date(from)) continue;
     const entry = s.entries.find((e) => e.exerciseId === exerciseId);
     if (entry && typeof entry.weight === 'number') {
       out.push({ date: s.date, weight: entry.weight, sets: entry.sets || [], name: entry.name });
@@ -80,6 +90,7 @@ export function historyFor(sessions, exerciseId) {
 export function isReadyHeavier(sessions, workoutId, exercise) {
   const last = lastSessionFor(sessions, workoutId);
   if (!last) return false;
+  if (exercise.statsFrom && new Date(last.date) < new Date(exercise.statsFrom)) return false;
   const entry = last.entries.find((e) => e.exerciseId === exercise.id);
   if (!entry || !entry.sets || entry.sets.length === 0) return false;
   return entry.sets.every((reps) => reps >= exercise.repHigh);

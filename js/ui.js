@@ -38,7 +38,7 @@ export function svg(tag, props = {}, ...children) {
 }
 
 let toastTimer = null;
-export function toast(message) {
+export function toast(message, ms = 2200) {
   let t = document.querySelector('.toast');
   if (!t) {
     t = h('div', { class: 'toast' });
@@ -47,7 +47,7 @@ export function toast(message) {
   t.textContent = message;
   requestAnimationFrame(() => t.classList.add('show'));
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
 
 /** 60 -> "60", 32.5 -> "32.5" (no trailing ".0"). */

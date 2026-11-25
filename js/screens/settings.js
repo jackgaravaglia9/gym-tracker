@@ -1,4 +1,4 @@
-import { h, toast, relDate } from '../ui.js';
+import { h, toast, relDate, toDateInputValue } from '../ui.js';
 import { navigate, state } from '../router.js';
 import * as store from '../store.js';
 import * as sync from '../sync.js';
@@ -86,7 +86,8 @@ export async function renderSettings() {
               numField('Sets', ex.sets, (v) => { ex.sets = v; markDirty(); }, 1),
               numField('Reps low', ex.repLow, (v) => { ex.repLow = v; markDirty(); }, 1),
               numField('Reps high', ex.repHigh, (v) => { ex.repHigh = v; markDirty(); }, 1)
-            )
+            ),
+            statsFromField(ex)
           )
         );
       });
@@ -128,6 +129,32 @@ export async function renderSettings() {
         h('button', { class: 'nav-btn', onClick: resetDefaults }, 'Reset to defaults'),
         h('button', { class: 'nav-btn btn-danger', onClick: eraseAll }, 'Erase all data')
       )
+    );
+  }
+
+  // "Track progress from": for when a machine changes and the old weights no
+  // longer compare. Earlier sessions stay in your history; they just stop
+  // counting toward the graph, gain, and plateau.
+  function statsFromField(ex) {
+    const input = h('input', { type: 'date', value: ex.statsFrom ? toDateInputValue(ex.statsFrom) : '' });
+    input.addEventListener('change', () => {
+      if (!input.value) delete ex.statsFrom;
+      else {
+        const [y, m, d] = input.value.split('-').map(Number);
+        ex.statsFrom = new Date(y, m - 1, d).toISOString(); // start of that day, so sessions logged any time that day count
+      }
+      markDirty();
+    });
+    return h('div', { class: 'field' },
+      h('label', {}, 'Track progress from'),
+      input,
+      h('div', { class: 'small-note' },
+        'Changed machines? Pick the first day on the new one and set Start weight above to your new baseline. ' +
+        'Earlier sessions stay in your history but stop counting toward progress.'),
+      ex.statsFrom && h('button', {
+        class: 'nav-btn', style: { marginTop: '8px' },
+        onClick: () => { delete ex.statsFrom; markDirty(); build(); },
+      }, 'Clear — count all history again')
     );
   }
 

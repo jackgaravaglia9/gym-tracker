@@ -25,14 +25,14 @@ export async function renderProgress() {
       `${workout.num || ''} ${workout.label} — ${last ? relDate(last.date) : 'not logged'}`.trim()));
 
     for (const ex of workout.exercises) {
-      const history = historyFor(state.sessions, ex.id);
+      const history = historyFor(state.sessions, ex.id, { from: ex.statsFrom });
       const ready = isReadyHeavier(state.sessions, workout.id, ex);
-      const current = lastWeightFor(state.sessions, ex.id);
+      const current = lastWeightFor(state.sessions, ex.id, { from: ex.statsFrom });
       const first = history.length ? history[0].weight : null;
       const gain = current !== null && first !== null ? current - first : 0;
 
       let sub;
-      if (!history.length) sub = 'Not logged yet';
+      if (!history.length) sub = ex.statsFrom ? `Counting from ${shortDate(ex.statsFrom)}` : 'Not logged yet';
       else if (ready) sub = h('span', { style: { color: 'var(--green)' } }, '▲ Ready to go heavier');
       else if (gain > 0) sub = `+${fmtWeight(gain)} lb since ${shortDate(history[0].date)}`;
       else sub = `${history.length} session${history.length === 1 ? '' : 's'} · since ${shortDate(history[0].date)}`;
@@ -77,15 +77,19 @@ function progressText() {
       if (seen.has(ex.id)) continue;
       seen.add(ex.id);
 
-      const history = historyFor(state.sessions, ex.id);
-      if (!history.length) { lines.push(`${ex.name} - not logged yet`); continue; }
+      const history = historyFor(state.sessions, ex.id, { from: ex.statsFrom });
+      const since = ex.statsFrom ? shortDate(ex.statsFrom) : 'start';
+      if (!history.length) {
+        lines.push(ex.statsFrom ? `${ex.name} - no sessions since ${since} yet` : `${ex.name} - not logged yet`);
+        continue;
+      }
 
       const first = history[0].weight;
       const current = history[history.length - 1].weight;
       const gain = tidy(current - first);
-      const change = gain > 0 ? `up ${fmtWeight(gain)} lb since start`
-        : gain < 0 ? `down ${fmtWeight(Math.abs(gain))} lb since start`
-        : 'no change since start';
+      const change = gain > 0 ? `up ${fmtWeight(gain)} lb since ${since}`
+        : gain < 0 ? `down ${fmtWeight(Math.abs(gain))} lb since ${since}`
+        : `no change since ${since}`;
       lines.push(`${ex.name} - ${history.length} session${history.length === 1 ? '' : 's'} logged - ${change} (${fmtWeight(first)} -> ${fmtWeight(current)} lb)`);
     }
     if (lines.length) out.push('', workout.label, ...lines);

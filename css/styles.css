@@ -701,3 +701,6 @@ h1, h2, h3, .num { font-family: var(--display); font-weight: 700; margin: 0; let
 .week-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .week-right { text-align: right; flex: 0 0 auto; }
 .week-delta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+/* Sessions from before a machine change: still listed, visibly set apart */
+.set-row.old { opacity: .6; }

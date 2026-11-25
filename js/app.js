@@ -14,6 +14,7 @@ import { renderAuth } from './screens/auth.js';
 import { renderExercise } from './screens/exercise.js';
 import { renderWeight } from './screens/weight.js';
 import * as store from './store.js';
+import { toast } from './ui.js';
 import * as sync from './sync.js';
 
 register('home', renderHome);
@@ -32,9 +33,12 @@ sync.initSync();
 
 // One-time data fixes run before the first screen draws, but a failure here
 // must never keep the app from opening.
+let migrationNotes = [];
 store.runMigrations()
+  .then((notes) => { migrationNotes = notes; })
   .catch((err) => console.error('Migration failed', err))
   .then(() => navigate('home'))
+  .then(() => { if (migrationNotes.length) toast(migrationNotes.join(' '), 7000); })
   .catch((err) => {
     document.getElementById('app').innerHTML =
       `<div class="empty">Something went wrong starting the app.<br><br>
