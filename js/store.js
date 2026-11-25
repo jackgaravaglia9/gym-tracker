@@ -270,3 +270,63 @@ export function newId() {
 
 export const getSyncPromptDismissed = () => metaGet('syncPromptDismissed', false);
 export const setSyncPromptDismissed = () => metaSet('syncPromptDismissed', true);
+
+// --- One-time data migrations ------------------------------------------------
+// Your workout list lives in IndexedDB on the device, not in defaults.js, so
+// editing defaults.js never touches an install that already has data. When the
+// stored list itself has to change (reorder, add an exercise), a migration
+// does it ONCE and records its id so it never runs again — anything you
+// change in Edit Workouts afterwards is left alone.
+//
+// Migrations only ever reshape the workout list or add data. They never delete
+// or overwrite logged sessions.
+
+const CHESTBACK_ORDER = [
+  'db-bench-press', 'lat-pulldown', 'smith-incline-press',
+  'seated-cable-row', 'seated-fixed-row', 'pec-deck', 'ab-crunch',
+];
+
+const MIGRATIONS = [
+  {
+    id: '2026-11-chestback-order-and-assisted-dips',
+    async run() {
+      const workouts = await getWorkouts(); // seeds defaults on a brand-new install
+      let changed = false;
+
+      const chest = workouts.find((w) => w.id === 'chestback');
+      if (chest) {
+        // Stable sort: anything not in the list (a custom exercise) goes last.
+        const rank = (ex) => {
+          const i = CHESTBACK_ORDER.indexOf(ex.id);
+          return i === -1 ? CHESTBACK_ORDER.length : i;
+        };
+        const sorted = [...chest.exercises].sort((a, b) => rank(a) - rank(b));
+        if (sorted.some((ex, i) => ex !== chest.exercises[i])) {
+          chest.exercises = sorted;
+          changed = true;
+        }
+      }
+
+      const arms = workouts.find((w) => w.id === 'arms');
+      if (arms && !arms.exercises.some((ex) => ex.id === 'assisted-dips' || /assisted dips/i.test(ex.name))) {
+        const at = arms.exercises.findIndex((ex) => ex.id === 'seated-dips');
+        arms.exercises.splice(at === -1 ? arms.exercises.length : at + 1, 0, {
+          id: 'assisted-dips', name: 'Assisted Dips', weight: 55, step: 5, sets: 3, repLow: 8, repHigh: 10,
+        });
+        changed = true;
+      }
+
+      if (changed) await saveWorkouts(workouts);
+    },
+  },
+];
+
+export async function runMigrations() {
+  const done = await metaGet('migrationsDone', []);
+  for (const m of MIGRATIONS) {
+    if (done.includes(m.id)) continue;
+    await m.run();
+    done.push(m.id);
+    await metaSet('migrationsDone', done);
+  }
+}

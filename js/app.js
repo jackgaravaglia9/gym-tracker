@@ -13,6 +13,7 @@ import { renderSettings } from './screens/settings.js';
 import { renderAuth } from './screens/auth.js';
 import { renderExercise } from './screens/exercise.js';
 import { renderWeight } from './screens/weight.js';
+import * as store from './store.js';
 import * as sync from './sync.js';
 
 register('home', renderHome);
@@ -29,12 +30,17 @@ register('weight', renderWeight);
 // and the app you already see behaves exactly as if it weren't here.
 sync.initSync();
 
-navigate('home').catch((err) => {
-  document.getElementById('app').innerHTML =
-    `<div class="empty">Something went wrong starting the app.<br><br>
-     <span style="font-size:12px">${err.message}</span></div>`;
-  console.error(err);
-});
+// One-time data fixes run before the first screen draws, but a failure here
+// must never keep the app from opening.
+store.runMigrations()
+  .catch((err) => console.error('Migration failed', err))
+  .then(() => navigate('home'))
+  .catch((err) => {
+    document.getElementById('app').innerHTML =
+      `<div class="empty">Something went wrong starting the app.<br><br>
+       <span style="font-size:12px">${err.message}</span></div>`;
+    console.error(err);
+  });
 
 // Offline support. Registered with relative paths because GitHub Pages serves
 // this app from /gym-tracker/, not the root of the domain.

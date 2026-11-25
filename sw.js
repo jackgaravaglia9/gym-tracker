@@ -8,7 +8,7 @@
 //   That's how the phone knows to pick up your changes instead of the old copy.
 // ---------------------------------------------------------------------------
 
-const VERSION = 'v6';
+const VERSION = 'v7';
 const CACHE = `gym-tracker-${VERSION}`;
 
 const ASSETS = [

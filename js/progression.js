@@ -47,6 +47,23 @@ export function lastWeightFor(sessions, exerciseId, opts = {}) {
   return null;
 }
 
+/**
+ * The most recent time you actually logged this exercise (in any workout),
+ * with the sets you did. A lift you skipped last session still shows the reps
+ * from the last time you did it, rather than going blank.
+ */
+export function lastEntryFor(sessions, exerciseId, opts = {}) {
+  const { beforeDate = null, excludeId = null } = opts;
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const s = sessions[i];
+    if (excludeId && s.id === excludeId) continue;
+    if (beforeDate && new Date(s.date) >= new Date(beforeDate)) continue;
+    const entry = s.entries.find((e) => e.exerciseId === exerciseId && e.sets && e.sets.length);
+    if (entry) return { sets: entry.sets, weight: entry.weight, date: s.date, sessionId: s.id };
+  }
+  return null;
+}
+
 /** Every logged weight for an exercise over time — feeds the sparkline. */
 export function historyFor(sessions, exerciseId) {
   const out = [];

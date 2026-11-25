@@ -1,6 +1,6 @@
-import { h, toast, fmtWeight, tidy, relDate, toDateInputValue, fromDateInputValue } from '../ui.js';
+import { h, toast, fmtWeight, tidy, relDate, shortDate, toDateInputValue, fromDateInputValue } from '../ui.js';
 import { navigate, state } from '../router.js';
-import { lastWeightFor, lastSessionFor, isReadyHeavier } from '../progression.js';
+import { lastWeightFor, lastSessionFor, lastEntryFor, isReadyHeavier } from '../progression.js';
 import * as store from '../store.js';
 
 // Three ways this screen gets used:
@@ -138,7 +138,7 @@ function buildScreen(workout, mode, initialDateISO, resumedLiveDraft, editingSes
     const entry = session.entries[ex.id];
     const previous = lastWeightFor(state.sessions, ex.id, { beforeDate: session.date, excludeId: session.id });
     const lastSession = lastSessionFor(state.sessions, workout.id, { beforeDate: session.date, excludeId: session.id });
-    const lastEntry = lastSession ? lastSession.entries.find((e) => e.exerciseId === ex.id) : null;
+    const lastEntry = lastEntryFor(state.sessions, ex.id, { beforeDate: session.date, excludeId: session.id });
     const ready = isReadyHeavier(state.sessions, workout.id, ex);
 
     const card = h('div', { class: 'card' });
@@ -201,8 +201,11 @@ function buildScreen(workout, mode, initialDateISO, resumedLiveDraft, editingSes
       chipRow.append(h('span', { class: 'chip changed' },
         `${d > 0 ? '+' : '−'}${fmtWeight(Math.abs(d))} lb from last time`));
     }
-    if (lastEntry && lastEntry.sets && lastEntry.sets.length) {
-      chipRow.append(h('span', { class: 'chip' }, `Last: ${lastEntry.sets.join(' · ')} reps`));
+    if (lastEntry) {
+      // If you skipped this lift last time, say when those reps are from.
+      const fromEarlier = lastSession && lastEntry.sessionId !== lastSession.id;
+      chipRow.append(h('span', { class: 'chip' },
+        `Last${fromEarlier ? ` (${shortDate(lastEntry.date)})` : ''}: ${lastEntry.sets.join(' · ')} reps`));
     }
     card.append(chipRow);
 
